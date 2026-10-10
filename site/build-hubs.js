@@ -414,8 +414,9 @@ function termItemHtml(model) {
   return `<li><a href="${escapeHtml(model.href)}">${escapeHtml(model.term.term)}</a><span>${escapeHtml(model.blurb)}</span></li>`;
 }
 
-function pageShell({ title, description, href, ogType, jsonLd, main }, context) {
+function pageShell({ title, description, href, card, ogType, jsonLd, main }, context) {
   const canonical = ORIGIN + href;
+  const image = `${ORIGIN}/og/${card}.png`;
   return `<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
@@ -427,14 +428,14 @@ function pageShell({ title, description, href, ogType, jsonLd, main }, context) 
 <link rel="canonical" href="${canonical}">
 <meta property="og:title" content="${escapeHtml(title)}">
 <meta property="og:description" content="${escapeHtml(description)}">
-<meta property="og:image" content="${ORIGIN}/og-image.png?v=4">
+<meta property="og:image" content="${image}">
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="${ogType}">
 <meta property="og:site_name" content="AI Engineering from Scratch">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(description)}">
-<meta name="twitter:image" content="${ORIGIN}/og-image.png?v=4">
+<meta name="twitter:image" content="${image}">
 <link rel="icon" href="${FAVICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -508,6 +509,7 @@ function termPage(model, context) {
     title: termTitle(term),
     description: clipSentences(term.means, 160),
     href,
+    card: `term/${model.slug}`,
     ogType: 'article',
     jsonLd: [
       {
@@ -614,6 +616,7 @@ function phasePage(phase, context) {
     title: phase.headline,
     description,
     href: phase.href,
+    card: `phase/${phase.slug}`,
     ogType: 'website',
     jsonLd: [
       {

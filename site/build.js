@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const { buildData: buildProjectData } = require('./build-projects.js');
 const { normalizeWhitespace, wordCount, truncateWords, seoTitleFor, descriptionFromParts, lessonDocumentSeo } = require('../lib/lesson-document');
 const { TRANSLATION_LANGUAGES, TRANSLATION_SOURCE, NATIVE_NAMES, isIndexedLanguage } = require('../lib/lesson-translations');
+const { socialCards } = require('../lib/og-cards');
 const { phaseHubPath, phaseLabel, glossaryLookupKey } = require('../lib/hub-routes');
 const { writeHubs } = require('./build-hubs.js');
 
@@ -28,6 +29,7 @@ const FIGURE_MANIFEST_OUTPUT_PATH = path.join(__dirname, 'figure-manifest.js');
 const LESSON_SEO_OUTPUT_PATH = path.join(__dirname, 'lesson-seo.json');
 const CERTIFICATION_SEO_OUTPUT_PATH = path.join(__dirname, 'certification-seo.json');
 const TRANSLATION_COVERAGE_PATH = path.join(__dirname, 'translation-coverage.json');
+const SOCIAL_CARDS_OUTPUT_PATH = path.join(__dirname, 'og-cards.json');
 const SEO_MANIFEST_VERSION = 1;
 const CATALOG_DISCOVERY_START = '<!-- GENERATED:LESSON-DISCOVERY:START -->';
 const CATALOG_DISCOVERY_END = '<!-- GENERATED:LESSON-DISCOVERY:END -->';
@@ -2279,8 +2281,26 @@ const ARTIFACTS = ${JSON.stringify(artifacts, null, 2)};
   writeSponsorsPage();
   syncCertificationStats(certifications);
   syncReadme(totalLessons);
-  writeSitemap(seoManifests.lessonManifest, glossaryTerms.length, certifications, hubs);
+  const projects = buildProjectData().projects;
+  writeSitemap(seoManifests.lessonManifest, glossaryTerms.length, certifications, projects, hubs);
   writeLlms(phases, glossaryTerms.length, artifacts.length, certifications, seoManifests.lessonManifest, hubs);
+  const manuals = readyManualIds().map(id => readJson(path.join(REPO_ROOT, 'manuals', id, 'manual.json')));
+  writeSocialCards({
+    lessons: totalLessons,
+    phases: phases.length,
+    skills: artifacts.filter(artifact => artifact.kind === 'skill').length,
+    prompts: artifacts.filter(artifact => artifact.kind === 'prompt').length,
+    terms: glossaryTerms.length,
+    tracks: certifications.tracks.length,
+  }, projects, manuals, hubs);
+}
+
+function writeSocialCards(stats, projects, manuals, hubs) {
+  const terms = hubs.termModels.filter(model => model.page).map(model => model.term);
+  const hubPhases = hubs.phaseModels.map(phase => ({ id: phase.id, name: phase.name, slug: phase.slug, lessons: phase.lessons.length, description: phase.lede }));
+  const cards = socialCards({ stats, projects, manuals, terms, phases: hubPhases });
+  fs.writeFileSync(SOCIAL_CARDS_OUTPUT_PATH, JSON.stringify({ version: 1, cards }) + '\n', 'utf8');
+  console.log(`   wrote og-cards.json (${Object.keys(cards).length} social cards)`);
 }
 
 function readyManualIds() {
@@ -2309,7 +2329,7 @@ function writeHubSitemaps(hubs, siteDir = __dirname) {
   });
 }
 
-function writeSitemap(lessonManifest, glossaryCount, certifications, hubs) {
+function writeSitemap(lessonManifest, glossaryCount, certifications, projects, hubs) {
   const urls = [
     { loc: '/', priority: '1.0', freq: 'weekly' },
     { loc: '/catalog.html', priority: '0.8', freq: 'weekly' },
@@ -2342,7 +2362,7 @@ function writeSitemap(lessonManifest, glossaryCount, certifications, hubs) {
     urls.push({ loc: '/manuals.html', priority: '0.7', freq: 'monthly' });
     for (const id of manualIds) urls.push({ loc: `/manual-${id}.html`, priority: '0.7', freq: 'monthly' });
   }
-  for (const project of buildProjectData().projects) {
+  for (const project of projects) {
     urls.push({ loc: '/project?id=' + encodeURIComponent(project.id), priority: '0.6', freq: 'monthly' });
   }
   fs.writeFileSync(path.join(__dirname, 'sitemap.xml'), urlsetXml(urls), 'utf8');
